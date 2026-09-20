@@ -1,0 +1,364 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Amazon Style Product Search</title>
+
+    <!-- jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f3f3f3;
+        }
+
+        /* Header */
+
+        header {
+            background: #131921;
+            padding: 20px;
+        }
+
+        .search-container {
+            width: 600px;
+            max-width: 100%;
+            margin: auto;
+            position: relative;
+        }
+
+        #searchBox {
+            width: 100%;
+            padding: 15px;
+            font-size: 17px;
+            border: none;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        /* Suggestion Dropdown */
+
+        #suggestions {
+            position: absolute;
+            top: 52px;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+
+            display: none;
+
+            z-index: 1000;
+        }
+
+        .suggestion {
+            padding: 14px 18px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .suggestion:hover {
+            background: #f5f5f5;
+        }
+
+        /* Highlight matching text */
+
+        .highlight {
+            background: yellow;
+            font-weight: bold;
+        }
+
+        /* Product Area */
+
+        .products {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .products h1 {
+            text-align: center;
+        }
+
+        .info {
+            text-align: center;
+            color: #555;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <!-- =========================
+         SEARCH HEADER
+    ========================== -->
+
+    <header>
+
+        <div class="search-container">
+
+            <input
+                type="text"
+                id="searchBox"
+                placeholder="Search products..."
+                autocomplete="off"
+            >
+
+            <div id="suggestions"></div>
+
+        </div>
+
+    </header>
+
+
+    <!-- =========================
+         PAGE CONTENT
+    ========================== -->
+
+    <div class="products">
+
+        <h1>🛒 Online Product Store</h1>
+
+        <p class="info">
+            Start typing in the search box to find products.
+        </p>
+
+    </div>
+
+
+    <!-- =========================
+         JQUERY CODE
+    ========================== -->
+
+    <script>
+
+        $(document).ready(function () {
+
+
+            // ==========================================
+            // 1. Create empty array for products
+            // ==========================================
+
+            let products = [];
+
+
+            // ==========================================
+            // 2. Fetch products.json
+            // ==========================================
+
+            $.getJSON("products.json", function (data) {
+
+                products = data;
+
+                console.log("Products loaded:", products);
+
+            })
+            .fail(function () {
+
+                console.log("Error loading products.json");
+
+            });
+
+
+            // ==========================================
+            // 3. Function to limit suggestions to 5
+            // ==========================================
+
+            function limitSuggestions(results) {
+
+                return results.slice(0, 5);
+
+            }
+
+
+            // ==========================================
+            // 4. Highlight matching text
+            // ==========================================
+
+            function highlightText(productName, searchText) {
+
+                if (searchText === "") {
+                    return productName;
+                }
+
+
+                // Escape special characters
+                let escapedText = searchText.replace(
+                    /[.*+?^${}()|[\]\\]/g,
+                    '\\$&'
+                );
+
+
+                // Create regular expression
+                let regex = new RegExp(
+                    "(" + escapedText + ")",
+                    "gi"
+                );
+
+
+                // Add span around matching text
+                return productName.replace(
+                    regex,
+                    '<span class="highlight">$1</span>'
+                );
+
+            }
+
+
+            // ==========================================
+            // 5. Live Search
+            // ==========================================
+
+            $("#searchBox").on("input", function () {
+
+                let searchText = $(this).val().trim();
+
+
+                // Clear suggestions if input is empty
+                if (searchText === "") {
+
+                    $("#suggestions").hide();
+
+                    return;
+
+                }
+
+
+                // ======================================
+                // Find matching products
+                // ======================================
+
+                let results = products.filter(function (product) {
+
+                    return product.name
+                        .toLowerCase()
+                        .includes(searchText.toLowerCase());
+
+                });
+
+
+                // ======================================
+                // Limit results to maximum 5
+                // ======================================
+
+                results = limitSuggestions(results);
+
+
+                // Clear previous suggestions
+                $("#suggestions").empty();
+
+
+                // ======================================
+                // Display suggestions
+                // ======================================
+
+                if (results.length > 0) {
+
+
+                    results.forEach(function (product) {
+
+
+                        // Highlight matching part
+                        let highlightedName =
+                            highlightText(
+                                product.name,
+                                searchText
+                            );
+
+
+                        // Create suggestion
+                        let suggestion = `
+                            <div
+                                class="suggestion"
+                                data-name="${product.name}"
+                            >
+                                ${highlightedName}
+                            </div>
+                        `;
+
+
+                        $("#suggestions").append(suggestion);
+
+                    });
+
+
+                    // Show dropdown
+                    $("#suggestions").show();
+
+
+                } else {
+
+                    $("#suggestions").hide();
+
+                }
+
+            });
+
+
+            // ==========================================
+            // 6. Click on suggestion
+            // ==========================================
+
+            $(document).on(
+                "click",
+                ".suggestion",
+                function () {
+
+                    let productName =
+                        $(this).data("name");
+
+
+                    // Put selected product in search box
+                    $("#searchBox").val(productName);
+
+
+                    // Close dropdown
+                    $("#suggestions").hide();
+
+                }
+            );
+
+
+            // ==========================================
+            // 7. Close dropdown when clicking outside
+            // ==========================================
+
+            $(document).on("click", function (event) {
+
+                if (
+                    !$(event.target).closest(
+                        ".search-container"
+                    ).length
+                ) {
+
+                    $("#suggestions").hide();
+
+                }
+
+            });
+
+
+        });
+
+    </script>
+
+</body>
+
+</html>
